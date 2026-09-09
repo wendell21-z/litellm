@@ -9,7 +9,6 @@ struct DetailView: View {
                 HeaderView(store: store)
                 EndpointView(store: store)
                 ActiveModelView(store: store)
-                ModelEditorView(store: store)
                 CredentialsView(store: store)
                 HealthView(store: store)
             }
@@ -134,58 +133,6 @@ private struct ActiveModelView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 6)
-            }
-        }
-    }
-}
-
-private struct ModelEditorView: View {
-    @Bindable var store: ProxyStore
-
-    var body: some View {
-        GroupBox("Model Configuration") {
-            if let name = store.bindingForActiveModel(\.displayName),
-               let provider = store.bindingForActiveModel(\.provider),
-               let model = store.bindingForActiveModel(\.litellmModel) {
-                Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
-                    GridRow {
-                        Text("Name").foregroundStyle(.secondary)
-                        TextField("", text: name)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                    GridRow {
-                        Text("Provider").foregroundStyle(.secondary)
-                        Picker("", selection: provider) {
-                            ForEach(ProviderKind.allCases) { provider in
-                                Text(provider.title).tag(provider)
-                            }
-                        }
-                        .labelsHidden()
-                        .frame(maxWidth: 220)
-                    }
-                    GridRow {
-                        Text("LiteLLM model").foregroundStyle(.secondary)
-                        TextField("", text: model)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 6)
-
-                HStack {
-                    Button {
-                        store.addModel()
-                    } label: {
-                        Label("Add Model", systemImage: "plus")
-                    }
-
-                    Button(role: .destructive) {
-                        store.removeActiveModel()
-                    } label: {
-                        Label("Remove", systemImage: "trash")
-                    }
-                    .disabled(store.configuration.models.count <= 1)
-                }
             }
         }
     }

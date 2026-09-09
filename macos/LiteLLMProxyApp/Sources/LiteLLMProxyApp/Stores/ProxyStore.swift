@@ -61,19 +61,27 @@ final class ProxyStore {
         saveConfiguration()
     }
 
-    func removeActiveModel() {
+    func removeModel(id: UUID) {
         guard configuration.models.count > 1 else {
             return
         }
-        configuration.models.removeAll { $0.id == configuration.activeModelID }
-        if let first = configuration.models.first {
+        configuration.models.removeAll { $0.id == id }
+        if configuration.activeModelID == id, let first = configuration.models.first {
             configuration.activeModelID = first.id
         }
         saveConfiguration()
     }
 
+    func removeActiveModel() {
+        removeModel(id: configuration.activeModelID)
+    }
+
     func bindingForActiveModel<Value>(_ keyPath: WritableKeyPath<ProviderModel, Value>) -> Binding<Value>? {
-        guard let index = configuration.models.firstIndex(where: { $0.id == configuration.activeModelID }) else {
+        bindingForModel(id: configuration.activeModelID, keyPath)
+    }
+
+    func bindingForModel<Value>(id: UUID, _ keyPath: WritableKeyPath<ProviderModel, Value>) -> Binding<Value>? {
+        guard let index = configuration.models.firstIndex(where: { $0.id == id }) else {
             return nil
         }
         return Binding {
