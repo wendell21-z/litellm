@@ -9,7 +9,7 @@ final class ProxyStore {
     var status: ProxyStatus = .stopped
     var discoveredModels: [String] = []
     var localProxyKey: String
-    var providerKeys: [ProviderKind: String]
+    var credentialSecrets: [UUID: String]
 
     private let configService: LiteLLMConfigService
     private let processService: LiteLLMProcessService
@@ -24,11 +24,12 @@ final class ProxyStore {
         self.configService = configService
         self.processService = processService
         self.healthClient = healthClient
-        self.configuration = configService.loadConfiguration()
+        let loadedConfiguration = configService.loadConfiguration()
+        self.configuration = loadedConfiguration
         let keychainService = KeychainService()
         self.localProxyKey = keychainService.read(account: "LITELLM_MASTER_KEY")
-        self.providerKeys = Dictionary(
-            uniqueKeysWithValues: ProviderKind.allCases.map { ($0, keychainService.read(account: $0.environmentKey)) }
+        self.credentialSecrets = Dictionary(
+            uniqueKeysWithValues: loadedConfiguration.credentials.map { ($0.id, keychainService.read(account: $0.id.uuidString)) }
         )
 
         if localProxyKey.isEmpty {
@@ -53,11 +54,39 @@ final class ProxyStore {
     func addModel() {
         let model = ProviderModel(
             displayName: "New Model",
-            provider: .openAI,
-            litellmModel: "openai/gpt-5-mini"
+            providerID: "openai",
+            litellmModel: "openai/gpt-5-mini",
+            credentialID: configuration.credentials.first { $0.providerID == "openai" }?.id
         )
         configuration.models.append(model)
         configuration.activeModelID = model.id
+        saveConfiguration()
+    }
+
+    func addCredential() {
+        let credential = CredentialRecord(
+            displayName: "New Credential",
+            providerID: "openai",
+            environmentKey: ProviderDescriptor.defaultEnvironmentKey(for: "openai")
+        )
+        configuration.credentials.append(credential)
+        credentialSecrets[credential.id] = ""
+        saveConfiguration()
+    }
+
+    func removeCredential(id: UUID) {
+        configuration.credentials.removeAll { $0.id == id }
+        credentialSecrets[id] = nil
+        configuration.models = configuration.models.map { model in
+            ProviderModel(
+                id: model.id,
+                displayName: model.displayName,
+                providerID: model.providerID,
+                litellmModel: model.litellmModel,
+                credentialID: model.credentialID == id ? nil : model.credentialID,
+                isEnabled: model.isEnabled
+            )
+        }
         saveConfiguration()
     }
 
@@ -92,9 +121,21 @@ final class ProxyStore {
         }
     }
 
-    func saveProviderKey(_ value: String, provider: ProviderKind) {
-        providerKeys[provider] = value
-        try? keychain.save(value, account: provider.environmentKey)
+    func bindingForCredential<Value>(id: UUID, _ keyPath: WritableKeyPath<CredentialRecord, Value>) -> Binding<Value>? {
+        guard let index = configuration.credentials.firstIndex(where: { $0.id == id }) else {
+            return nil
+        }
+        return Binding {
+            self.configuration.credentials[index][keyPath: keyPath]
+        } set: { value in
+            self.configuration.credentials[index][keyPath: keyPath] = value
+            self.saveConfiguration()
+        }
+    }
+
+    func saveCredentialSecret(_ value: String, credentialID: UUID) {
+        credentialSecrets[credentialID] = value
+        try? keychain.save(value, account: credentialID.uuidString)
     }
 
     func saveConfiguration() {
@@ -144,9 +185,9 @@ final class ProxyStore {
     }
 
     private func environmentForProxy() -> [String: String] {
-        let providerEnvironment = Dictionary(
-            uniqueKeysWithValues: providerKeys.map { ($0.key.environmentKey, $0.value) }
-        )
-        return providerEnvironment.merging(["LITELLM_MASTER_KEY": localProxyKey]) { _, new in new }
+        let credentialEnvironment = configuration.credentials.reduce(into: [String: String]()) { environment, credential in
+            environment[credential.environmentKey] = credentialSecrets[credential.id] ?? ""
+        }
+        return credentialEnvironment.merging(["LITELLM_MASTER_KEY": localProxyKey]) { _, new in new }
     }
 }

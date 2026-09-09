@@ -43,7 +43,7 @@ struct ModelsView: View {
         List(selection: $selectedModelID) {
             ForEach(store.configuration.models) { model in
                 HStack(spacing: 10) {
-                    Image(systemName: icon(for: model.provider))
+                    Image(systemName: icon(for: model.providerID))
                         .foregroundStyle(.secondary)
                         .frame(width: 16)
                     VStack(alignment: .leading, spacing: 2) {
@@ -82,8 +82,9 @@ struct ModelsView: View {
         if let id = selectedModelID,
            let selectedModel = store.configuration.models.first(where: { $0.id == id }),
            let name = store.bindingForModel(id: id, \.displayName),
-           let provider = store.bindingForModel(id: id, \.provider),
-           let model = store.bindingForModel(id: id, \.litellmModel) {
+           let provider = store.bindingForModel(id: id, \.providerID),
+           let model = store.bindingForModel(id: id, \.litellmModel),
+           let credential = store.bindingForModel(id: id, \.credentialID) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack {
@@ -91,7 +92,7 @@ struct ModelsView: View {
                             Text(selectedModel.displayName)
                                 .font(.largeTitle.bold())
                                 .lineLimit(1)
-                            Text(selectedModel.provider.title)
+                            Text(ProviderDescriptor.title(for: selectedModel.providerID))
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -114,17 +115,33 @@ struct ModelsView: View {
                             GridRow {
                                 Text("Provider").foregroundStyle(.secondary)
                                 Picker("", selection: provider) {
-                                    ForEach(ProviderKind.allCases) { provider in
-                                        Text(provider.title).tag(provider)
+                                    ForEach(ProviderDescriptor.catalog) { provider in
+                                        Text(provider.title).tag(provider.id)
                                     }
                                 }
                                 .labelsHidden()
                                 .frame(maxWidth: 220)
                             }
                             GridRow {
+                                Text("Provider id").foregroundStyle(.secondary)
+                                TextField("", text: provider)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+                            GridRow {
                                 Text("LiteLLM model").foregroundStyle(.secondary)
                                 TextField("", text: model)
                                     .textFieldStyle(.roundedBorder)
+                            }
+                            GridRow {
+                                Text("Credential").foregroundStyle(.secondary)
+                                Picker("", selection: credential) {
+                                    Text("None").tag(UUID?.none)
+                                    ForEach(store.configuration.credentials) { credential in
+                                        Text(credential.displayName).tag(UUID?.some(credential.id))
+                                    }
+                                }
+                                .labelsHidden()
+                                .frame(maxWidth: 260)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,7 +157,7 @@ struct ModelsView: View {
                             }
                             GridRow {
                                 Text("API key env").foregroundStyle(.secondary)
-                                Text(selectedModel.provider.environmentKey)
+                                Text(environmentKey(for: selectedModel))
                                     .textSelection(.enabled)
                             }
                         }
@@ -156,13 +173,21 @@ struct ModelsView: View {
         }
     }
 
-    private func icon(for provider: ProviderKind) -> String {
-        switch provider {
-        case .openAI: "sparkles"
-        case .anthropic: "text.bubble"
-        case .gemini: "diamond"
-        case .openRouter: "point.3.connected.trianglepath.dotted"
-        case .bedrock: "server.rack"
+    private func icon(for providerID: String) -> String {
+        switch providerID {
+        case "openai": "sparkles"
+        case "anthropic": "text.bubble"
+        case "gemini": "diamond"
+        case "openrouter": "point.3.connected.trianglepath.dotted"
+        case "bedrock": "server.rack"
+        case "azure", "vertex_ai": "cloud"
+        case "ollama", "vllm", "lm_studio": "desktopcomputer"
+        default: "cpu"
         }
+    }
+
+    private func environmentKey(for model: ProviderModel) -> String {
+        store.configuration.credentials.first { $0.id == model.credentialID }?.environmentKey
+            ?? ProviderDescriptor.defaultEnvironmentKey(for: model.providerID)
     }
 }

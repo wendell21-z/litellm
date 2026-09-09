@@ -118,7 +118,7 @@ private struct ActiveModelView: View {
                 Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
                     GridRow {
                         Text("Provider").foregroundStyle(.secondary)
-                        Text(model.provider.title)
+                        Text(ProviderDescriptor.title(for: model.providerID))
                     }
                     GridRow {
                         Text("LiteLLM model").foregroundStyle(.secondary)
@@ -142,27 +142,21 @@ private struct CredentialsView: View {
     @Bindable var store: ProxyStore
 
     var body: some View {
-        GroupBox("Provider Keys") {
+        GroupBox("Credentials") {
             VStack(alignment: .leading, spacing: 10) {
-                ForEach(ProviderKind.allCases) { provider in
+                ForEach(store.configuration.credentials) { credential in
                     HStack {
-                        Text(provider.title)
-                            .frame(width: 120, alignment: .leading)
+                        Text(credential.displayName)
+                            .frame(width: 160, alignment: .leading)
+                        Text(ProviderDescriptor.title(for: credential.providerID))
+                            .frame(width: 140, alignment: .leading)
                             .foregroundStyle(.secondary)
-                        SecureField(provider.environmentKey, text: binding(for: provider))
-                            .textFieldStyle(.roundedBorder)
+                        Text(credential.environmentKey)
+                            .textSelection(.enabled)
                     }
                 }
             }
             .padding(.vertical, 6)
-        }
-    }
-
-    private func binding(for provider: ProviderKind) -> Binding<String> {
-        Binding {
-            store.providerKeys[provider] ?? ""
-        } set: { value in
-            store.saveProviderKey(value, provider: provider)
         }
     }
 }

@@ -14,6 +14,8 @@ struct ContentView: View {
                 DetailView(store: store)
             case .models:
                 ModelsView(store: store)
+            case .credentials:
+                CredentialsManagementView(store: store)
             }
         }
         .onChange(of: store.configuration.activeModelID) {

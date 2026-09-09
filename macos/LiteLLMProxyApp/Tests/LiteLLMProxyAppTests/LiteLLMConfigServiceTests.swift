@@ -8,14 +8,22 @@ struct LiteLLMConfigServiceTests {
         let model = ProviderModel(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             displayName: "Claude",
-            provider: .anthropic,
-            litellmModel: "anthropic/claude-sonnet-4-5"
+            providerID: "anthropic",
+            litellmModel: "anthropic/claude-sonnet-4-5",
+            credentialID: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        )
+        let credential = CredentialRecord(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            displayName: "Anthropic",
+            providerID: "anthropic",
+            environmentKey: "ANTHROPIC_API_KEY"
         )
         let configuration = ProxyConfiguration(
             publicModelName: "current",
             port: 4000,
             activeModelID: model.id,
-            models: [model]
+            models: [model],
+            credentials: [credential]
         )
 
         let yaml = LiteLLMConfigService().renderLiteLLMConfig(configuration)

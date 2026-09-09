@@ -45,13 +45,15 @@ struct LiteLLMConfigService {
         guard let active = configuration.models.first(where: { $0.id == configuration.activeModelID }) else {
             return ""
         }
+        let credential = configuration.credentials.first { $0.id == active.credentialID }
+        let environmentKey = credential?.environmentKey ?? ProviderDescriptor.defaultEnvironmentKey(for: active.providerID)
 
         return """
         model_list:
           - model_name: \(configuration.publicModelName)
             litellm_params:
               model: \(active.litellmModel)
-              api_key: os.environ/\(active.provider.environmentKey)
+              api_key: os.environ/\(environmentKey)
 
         general_settings:
           master_key: os.environ/LITELLM_MASTER_KEY
